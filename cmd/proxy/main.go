@@ -75,7 +75,6 @@ func main() {
 
 func handleLogin(w http.ResponseWriter, r *http.Request) {
 	url := oauthConfig.AuthCodeURL("state", oauth2.AccessTypeOffline)
-	fmt.Println("Redirecting user to:", url)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
