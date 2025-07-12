@@ -8,12 +8,12 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func ProxyHandler(tokenStore *TokenStore, oauthConfig *oauth2.Config) http.HandlerFunc {
+func ProxyHandler(tokenStore *RedisTokenStore, oauthConfig *oauth2.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userCookie, _ := r.Cookie("user_id")
-		token, ok := tokenStore.Get(userCookie.Value)
+		token, err := tokenStore.Get(userCookie.Value)
 
-		if !ok {
+		if err != nil {
 			http.Error(w, "User not found", http.StatusNotFound)
 			return
 		}

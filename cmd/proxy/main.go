@@ -17,7 +17,7 @@ import (
 )
 
 var oauthConfig *oauth2.Config
-var tokenStore *spotify.TokenStore
+var tokenStore *spotify.RedisTokenStore
 
 type SpotifyUser struct {
 	ID          string `json:"id"`
@@ -53,7 +53,7 @@ func main() {
 		Endpoint: spotifyauth.Endpoint,
 	}
 
-	tokenStore = spotify.NewTokenStore()
+	tokenStore = spotify.NewTokenStore(os.Getenv("REDIS_ADDR"))
 
 	if spotifyClientID == "" || spotifyClientSecret == "" || redirectURI == "" {
 		log.Fatal("Missing required environment variables")

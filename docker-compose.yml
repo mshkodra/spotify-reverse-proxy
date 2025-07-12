@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  proxy:
+    image: golang:1.24.4-alpine
+    container_name: spotify-proxy-dev
+    working_dir: /app
+    volumes:
+      - .:/app
+    ports:
+      - "8080:8080"
+    command: sh -c "go run ./cmd/proxy"
+    environment:
+      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
+      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
+      - SPOTIFY_REDIRECT_URI=http://localhost:8080/callback
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      - redis
+
+
+  redis:
+    image: redis:7
+    container_name: spotify-redis
+    ports:
+      - "6379:6379"
