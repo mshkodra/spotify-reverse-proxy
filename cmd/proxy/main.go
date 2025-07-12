@@ -8,7 +8,8 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"sync"
+
+	"spotify-reverse-proxy/internal/spotify"
 
 	"github.com/joho/godotenv"
 	"golang.org/x/oauth2"
@@ -16,11 +17,7 @@ import (
 )
 
 var oauthConfig *oauth2.Config
-
-var tokenStore = struct {
-	sync.RWMutex
-	m map[string]*oauth2.Token
-}{m: make(map[string]*oauth2.Token)}
+var tokenStore *spotify.TokenStore
 
 type SpotifyUser struct {
 	ID          string `json:"id"`
@@ -49,10 +46,14 @@ func main() {
 		ClientSecret: spotifyClientSecret,
 		RedirectURL:  redirectURI,
 		Scopes: []string{
-			"user-read-private", "playlist-read-private",
+			"user-read-private",
+			"user-top-read",
+			"playlist-read-private",
 		},
 		Endpoint: spotifyauth.Endpoint,
 	}
+
+	tokenStore = spotify.NewTokenStore()
 
 	if spotifyClientID == "" || spotifyClientSecret == "" || redirectURI == "" {
 		log.Fatal("Missing required environment variables")
@@ -65,6 +66,8 @@ func main() {
 	http.HandleFunc("/login", handleLogin)
 
 	http.HandleFunc("/callback", handleCallback)
+
+	http.HandleFunc("/spotify/", spotify.ProxyHandler(tokenStore, oauthConfig))
 
 	fmt.Printf("Server started on http://localhost:%s\n", port)
 	err := http.ListenAndServe(":"+port, nil)
@@ -115,10 +118,7 @@ func handleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenStore.Lock()
-	tokenStore.m[user.ID] = token
-	tokenStore.Unlock()
-
+	tokenStore.Set(user.ID, token)
 	http.SetCookie(w, &http.Cookie{
 		Name:  "user_id",
 		Value: user.ID,
