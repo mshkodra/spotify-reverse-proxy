@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -20,6 +21,16 @@ var tokenStore = struct {
 	sync.RWMutex
 	m map[string]*oauth2.Token
 }{m: make(map[string]*oauth2.Token)}
+
+type SpotifyUser struct {
+	ID          string `json:"id"`
+	DisplayName string `json:"display_name"`
+	Email       string `json:"email"`
+	Images      []struct {
+		URL string `json:"url"`
+	} `json:"images"`
+	Country string `json:"country"`
+}
 
 func main() {
 	_ = godotenv.Load()
@@ -55,8 +66,6 @@ func main() {
 
 	http.HandleFunc("/callback", handleCallback)
 
-	http.HandleFunc("/user", handleUser)
-
 	fmt.Printf("Server started on http://localhost:%s\n", port)
 	err := http.ListenAndServe(":"+port, nil)
 	if err != nil {
@@ -84,21 +93,6 @@ func handleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenStore.Lock()
-	tokenStore.m["user1"] = token
-	tokenStore.Unlock()
-}
-
-func handleUser(w http.ResponseWriter, r *http.Request) {
-	tokenStore.RLock()
-	token, ok := tokenStore.m["user1"]
-	tokenStore.RUnlock()
-
-	if !ok {
-		http.Error(w, "User not found", http.StatusNotFound)
-		return
-	}
-
 	client := oauthConfig.Client(context.Background(), token)
 
 	resp, err := client.Get("https://api.spotify.com/v1/me")
@@ -115,6 +109,21 @@ func handleUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Fprintf(w, "User info: %+v\n", string(body))
+	var user SpotifyUser
+	err = json.Unmarshal(body, &user)
+	if err != nil {
+		http.Error(w, "Failed to unmarshal user info: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	tokenStore.Lock()
+	tokenStore.m[user.ID] = token
+	tokenStore.Unlock()
+
+	http.SetCookie(w, &http.Cookie{
+		Name:  "user_id",
+		Value: user.ID,
+		Path:  "/",
+	})
 
 }
